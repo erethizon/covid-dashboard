@@ -1,0 +1,79 @@
+---
+title: "experimenting.Rmd"
+author: "Erika"
+date: "4/13/2020"
+output: html_document
+---
+
+Experimenting with code to pull data from the NYS public health website
+### Clear workspace
+```{r}
+rm(list = ls())
+```
+
+### Install packages and turn on libraries
+```{r}
+library(RSocrata)
+library(tidyverse)
+library(config)
+```
+Now try to pull some code using an api key to read the datasets
+
+Set my token, obtained by application after creating an account on the developer settings page on the [NYS health data portal](https://health.data.ny.gov/profile/edit/developer_settings) 
+
+NOTE: it is dangerous to put api tokens and passwords onto github in your versioned code.  Thus, I'm going to embed them into a config file and use the package "config" to store them. The config file (config.yml) is added to the gitignore and is not tracked on github.
+
+```{r}
+nys<-config::get("nys_healthdata")
+```
+
+Now try to pull some data:
+```{r}
+covidData<-read.socrata(
+  "https://health.data.ny.gov/resource/xdss-u53e.csv",
+  app_token = nys$token,
+  email     = nys$email,
+  password  = nys$pwd
+)
+```
+
+It worked! That was so easy!
+
+Let's see how the data are arranged
+```{r}
+names(covidData)
+```
+Great! Now let's limit to our NoCo counties
+
+Let's get a data frame of north country counties, their area (square miles), and their population. These data come from [this state webpage](https://www.ny.gov/counties).
+```{r}
+Counties<-c("Jefferson", "St. Lawrence","Franklin", "Clinton", "Essex", "Hamilton", "Lewis" )
+Area<-c(1857,2821,1697,1118,1916,1808,1290)
+Pop<-c(111755, 108047,50293,80695,37300,4434,26447)
+NoCo<-data.frame(cbind(Counties, Area, Pop), stringsAsFactors = F)
+NoCo$Area<-as.integer(NoCo$Area)
+NoCo$Pop<-as.integer(NoCo$Pop)
+```
+Now filter
+```{r}
+NoCoData<-covidData %>% filter(county == Counties)
+```
+Now make some plots:
+
+Cumulative number of cases by county over time
+```{r}
+ggplot(NoCoData, aes(test_date, cumulative_number_of_positives, group = county, color = county))+
+  geom_line()+
+  geom_point()+
+  labs(x = "Date", y = "Cumulative number of cases")
+```
+
+
+
+
+
+
+
+
+
+
