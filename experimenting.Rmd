@@ -47,9 +47,9 @@ Great! Now let's limit to our NoCo counties
 
 Let's get a data frame of north country counties, their area (square miles), and their population. These data come from [this state webpage](https://www.ny.gov/counties).
 ```{r}
-Counties<-c("Jefferson", "St. Lawrence","Franklin", "Clinton", "Essex", "Hamilton", "Lewis" )
-Area<-c(1857,2821,1697,1118,1916,1808,1290)
-Pop<-c(111755, 108047,50293,80695,37300,4434,26447)
+Counties<-c("Jefferson", "St. Lawrence","Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis" )
+Area<-c(1857,2821,1697,1118,1916,1808,1458,1290)
+Pop<-c(111755, 108047,50293,80695,37300,4434,61833,26447)
 NoCo<-data.frame(cbind(Counties, Area, Pop), stringsAsFactors = F)
 NoCo$Area<-as.integer(NoCo$Area)
 NoCo$Pop<-as.integer(NoCo$Pop)

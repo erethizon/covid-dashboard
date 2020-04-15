@@ -1,0 +1,48 @@
+---
+title: "leaflet.Rmd"
+author: "Erika"
+date: "4/14/2020"
+output: html_document
+---
+
+Learning to use the leaflet library to make maps inside of R so that I can create a map in my covid tracker.
+
+I'm using this [Leaflet for R](https://rstudio.github.io/leaflet/) website as a guide.
+
+Set up the workspace
+```{r}
+rm(list = ls())
+library(leaflet)
+library(maptools)
+library(rgdal)
+```
+How do we load shapefiles? Use maptools
+Got data from NYS as shapefiles.  
+
+Step 1 is that we need to set the projection. We have data as projected, NAD_1983_UTM_Zone_18N with a geogcs of GCS_North_American_1983
+```{r}
+counties<-readOGR("NYS_Civil_Boundaries_SHP/","Counties" )
+str(counties@data)
+
+```
+Now try to filter to NoCo using subset inside of rgdal
+
+```{r}
+library(tidyverse)
+no_co_counties<-c("Jefferson", "St Lawrence", "Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis")
+noco<-subset(counties, NAME %in% no_co_counties)
+plot(noco)
+```
+Now use leaflet to make a chloropleth?
+```{r}
+leaflet(noco) %>% addPolygons(
+  color = "#444444", 
+  weight = 1, 
+  smoothFactor = 0.5, 
+  opacity = 1.0, 
+  fillOpacity = 0.5, 
+  highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE))
+
+```
+
