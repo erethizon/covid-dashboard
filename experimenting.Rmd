@@ -53,6 +53,7 @@ Pop<-c(111755, 108047,50293,80695,37300,4434,61833,26447)
 NoCo<-data.frame(cbind(Counties, Area, Pop), stringsAsFactors = F)
 NoCo$Area<-as.integer(NoCo$Area)
 NoCo$Pop<-as.integer(NoCo$Pop)
+write.csv(NoCo, "county_data.csv")
 ```
 Now filter
 ```{r}

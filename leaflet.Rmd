@@ -21,7 +21,7 @@ Got data from NYS as shapefiles.
 
 Step 1 is that we need to set the projection. We have data as projected, NAD_1983_UTM_Zone_18N with a geogcs of GCS_North_American_1983
 ```{r}
-counties<-readOGR("NYS_Civil_Boundaries_SHP/","Counties" )
+counties<-readOGR("NYS_Civil_Boundaries_SHP/Counties.shp", layer = "Counties")
 str(counties@data)
 
 ```
@@ -34,15 +34,59 @@ noco<-subset(counties, NAME %in% no_co_counties)
 plot(noco)
 ```
 Now use leaflet to make a chloropleth?
+
+First we need to do a spatial transform to get lat/long into the projection.
+
 ```{r}
-leaflet(noco) %>% addPolygons(
-  color = "#444444", 
-  weight = 1, 
-  smoothFactor = 0.5, 
-  opacity = 1.0, 
-  fillOpacity = 0.5, 
-  highlightOptions = highlightOptions(color = "white", weight = 2,
-      bringToFront = TRUE))
+noco_ll<-spTransform(noco, CRS("+proj=longlat +datum=WGS84"))
+```
+Now try to plot
+```{r}
+leaflet() %>% addTiles() %>% 
+  setView(lng = -75.05, lat = 44.05, zoom = 7) %>% 
+  addPolygons(
+    data = noco_ll, 
+    weight = 5, 
+    col = 'red',
+    highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
+      weight = 5,
+      color = "orange", 
+      bringToFront = T))
+```
+Great! It works!
+
+Now bring in some data about the counties.
+
+```{r}
+data<-read.csv("county_data.csv", stringsAsFactors = F)
+```
+Now let's get some data about the counties onto the map
+
+```{r}
+library(htmltools)
+labels<-sprintf(
+  "<strong>%s</strong><br/>%g people / mi<sup>2</sup>",
+  data$Counties, data$Pop) %>% lapply(htmltools::HTML)
 
 ```
-
+And now try to display
+```{r}
+leaflet() %>% addTiles() %>% 
+  setView(lng = -75.05, lat = 44.05, zoom = 7) %>% 
+  addPolygons(
+    data = noco_ll, 
+    weight = 5, 
+    col = 'red',
+    highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
+      weight = 5,
+      color = "orange", 
+      bringToFront = T),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")
+    ) 
+    
+```
+Works beautifully except that my counties are out of order...
