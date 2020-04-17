@@ -13,16 +13,21 @@ ui<-fluidPage(
                               "Clinton",
                               "Essex",
                               "Hamilton",
+                              "Herkimer",
                               "Lewis"),
                   selected = "St. Lawrence")
     ),
-    mainPanel()
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Map view", leafletOutput("covid_map"))
   )
 )
 
 #define server logic ----
 server<-function(input, output) {
+ouptput$covid_map<- renderLeaflet({
 
+})
 }
 
 # Run the app ----

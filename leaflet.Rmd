@@ -60,6 +60,7 @@ Now bring in some data about the counties.
 ```{r}
 data<-read.csv("county_data.csv", stringsAsFactors = F)
 ```
+
 Now let's get some data about the counties onto the map
 
 ```{r}
