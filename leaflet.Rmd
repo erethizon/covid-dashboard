@@ -29,8 +29,8 @@ Now try to filter to NoCo using subset inside of rgdal
 
 ```{r}
 library(tidyverse)
-no_co_counties<-c("Jefferson", "St Lawrence", "Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis")
-noco<-subset(counties, NAME %in% no_co_counties)
+subset_counties<-c("Jefferson", "St Lawrence", "Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis")
+noco<-subset(counties, NAME %in% subset_counties)
 plot(noco)
 ```
 Now use leaflet to make a chloropleth?
@@ -58,41 +58,9 @@ Great! It works!
 Now bring in some data about the counties.
 
 ```{r}
-data<-read.csv("county_data.csv", stringsAsFactors = F)
+data<-read.csv("county_data.csv")
 ```
-
-Now let's get some data about the counties onto the map
-
-```{r}
-library(htmltools)
-labels<-sprintf(
-  "<strong>%s</strong><br/>%g people / mi<sup>2</sup>",
-  data$Counties, data$Pop) %>% lapply(htmltools::HTML)
-
-```
-And now try to display
-```{r}
-leaflet() %>% addTiles() %>% 
-  setView(lng = -75.05, lat = 44.05, zoom = 7) %>% 
-  addPolygons(
-    data = noco_ll, 
-    weight = 5, 
-    col = 'red',
-    highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
-      weight = 5,
-      color = "orange", 
-      bringToFront = T),
-    label = labels,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", padding = "3px 8px"),
-      textsize = "15px",
-      direction = "auto")
-    ) 
-    
-```
-Works beautifully except that my counties are out of order...
-
-Ignoring that (for now), let's see if I can now integrate data from the NYS health department website, using code from `experimenting.Rmd`.
+Now let's get the data from the NYS health department, using code from `experimenting.Rmd`.
 ```{r}
 library(RSocrata)
 library(tidyverse)
@@ -120,7 +88,7 @@ covidData<-read.socrata(
 Now subset for just our counties
 
 ```{r}
-our_counties<-c("Jefferson", "St. Lawrence", "Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis")
+our_counties<-c("Clinton", "Essex", "Franklin", "Hamilton", "Herkimer", "Lewis", "St. Lawrence", "Jefferson")
 noco_covid<-covidData %>% filter(county %in% our_counties)
 ```
 Now can I extract just the latest date for each county (even if there is more than one date present?)
@@ -130,14 +98,42 @@ Try this:
 no_covid<-noco_covid %>% group_by(county) %>% 
   arrange(desc(test_date)) %>% slice(1)
 ```
-Perfect! 
+Ok, now let's add some of the data from the counties and the health dept data to the shapefile.  Do some joins.
+
+Let's try joining to the shapefile using the `@data` call.
+
+First join data to get pop numbers and area. Need to match the names first. Let's change the name of St Lawrence in noco_ll$NAME to "St. Lawrence"
+```{r}
+noco_ll$NAME<-factor(noco_ll$NAME)
+rename<-noco_ll$NAME
+rename<-as.character(rename)
+rename[7] <- "St. Lawrence"
+rename<-as.factor(rename)
+noco_ll$NAME<-rename
+```
+
+And now join
+```{r}
+noco_ll@data <- left_join(noco_ll@data, data, by = c("NAME"= "Counties"))
+```
+
+And now before we add the health data, output the shapefile with the county information to use in the shiny app.
+```{r}
+td<-"/Users/ebar/Dropbox/R/covid-dashboard/NYS_Civil_Boundaries_SHP"
+writeOGR(noco_ll, td, layer = "no_co_counties", driver="ESRI Shapefile")
+```
+
+Now add the health data
+```{r}
+noco_ll@data<-left_join(noco_ll@data, no_covid, by = c("NAME" = "county"))
+```
 
 Now can I add those data to the map?
 ```{r}
 library(htmltools)
-labels1<-sprintf(
+labels<-sprintf(
   "<strong>%s</strong><br/>%g cases.",
-  data$Counties, no_covid$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
+  noco_ll$NAME, noco_ll$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
 
 ```
 And now try to display
@@ -152,7 +148,7 @@ leaflet() %>% addTiles() %>%
       weight = 5,
       color = "orange", 
       bringToFront = T),
-    label = labels1,
+    label = labels,
     labelOptions = labelOptions(
       style = list("font-weight" = "normal", padding = "3px 8px"),
       textsize = "15px",
@@ -162,4 +158,3 @@ leaflet() %>% addTiles() %>%
 ```
 It works!
 
-Just need to fix the county orders! (In the shapefile the counties are listed in a different order than in my other data sets so they don't line up correctly.)
