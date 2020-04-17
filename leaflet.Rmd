@@ -90,3 +90,75 @@ leaflet() %>% addTiles() %>%
     
 ```
 Works beautifully except that my counties are out of order...
+
+Ignoring that (for now), let's see if I can now integrate data from the NYS health department website, using code from `experimenting.Rmd`.
+```{r}
+library(RSocrata)
+library(tidyverse)
+library(config)
+```
+Now try to pull some code using an api key to read the datasets
+
+Set my token, obtained by application after creating an account on the developer settings page on the [NYS health data portal](https://health.data.ny.gov/profile/edit/developer_settings) 
+
+NOTE: it is dangerous to put api tokens and passwords onto github in your versioned code.  Thus, I'm going to embed them into a config file and use the package "config" to store them. The config file (config.yml) is added to the gitignore and is not tracked on github.
+
+```{r}
+nys<-config::get("nys_healthdata")
+```
+
+Now try to pull some data:
+```{r}
+covidData<-read.socrata(
+  "https://health.data.ny.gov/resource/xdss-u53e.csv",
+  app_token = nys$token,
+  email     = nys$email,
+  password  = nys$pwd
+)
+```
+Now subset for just our counties
+
+```{r}
+our_counties<-c("Jefferson", "St. Lawrence", "Franklin", "Clinton", "Essex", "Hamilton", "Herkimer","Lewis")
+noco_covid<-covidData %>% filter(county %in% our_counties)
+```
+Now can I extract just the latest date for each county (even if there is more than one date present?)
+
+Try this:
+```{r}
+no_covid<-noco_covid %>% group_by(county) %>% 
+  arrange(desc(test_date)) %>% slice(1)
+```
+Perfect! 
+
+Now can I add those data to the map?
+```{r}
+library(htmltools)
+labels1<-sprintf(
+  "<strong>%s</strong><br/>%g cases.",
+  data$Counties, no_covid$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
+
+```
+And now try to display
+```{r}
+leaflet() %>% addTiles() %>% 
+  setView(lng = -75.05, lat = 44.05, zoom = 7) %>% 
+  addPolygons(
+    data = noco_ll, 
+    weight = 5, 
+    col = 'red',
+    highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
+      weight = 5,
+      color = "orange", 
+      bringToFront = T),
+    label = labels1,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")
+    ) 
+    
+```
+It works!
+
+Just need to fix the county orders! (In the shapefile the counties are listed in a different order than in my other data sets so they don't line up correctly.)
