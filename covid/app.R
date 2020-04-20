@@ -34,21 +34,27 @@ no_covid<-noco_covid %>% group_by(county) %>%
 counties@data<-left_join(counties@data, no_covid, by = c("NAME" = "county"))
 
 #calculate per capita cases in shapefile
-counties@data$cases_per_cap<-(counties@data$cumulative_number_of_positives)/(counties@data$Pop)
+counties@data$cases_per_1000<-(counties@data$cumulative_number_of_positives/counties@data$Pop)*1000
 
 #set population variable
 population<-c(80695,37300,50293,4434,61833,111755,26447,108047)
 pop_size<-rep(population, 48)
-#now set up map labels
 
 noco_covid$pop_size<-pop_size
 noco_covid$cases_per_cap<-noco_covid$cumulative_number_of_positives/noco_covid$pop_size
 noco_covid$cases_per_1000<-noco_covid$cases_per_cap*1000
+
+#set up bins and color for them
+bins<-c(0,0.2,0.4,0.6,0.8, 1.0)
+pal<-colorBin("Greens",  bins = bins)
+
+#now set up map labels
+
 labels<-sprintf(
   "<strong>%s</strong><br/>%g cases.",
   counties$NAME, counties$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
 
-#create some map variables
+#color variable for plots
 colors<-c('#ffffe5','#f7fcb9','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
 
 #build ui ----
@@ -57,22 +63,19 @@ ui<-fluidPage(
   sidebarLayout(
     sidebarPanel(
       helpText("This application will help you visualize covid data in the North Country"),
-      selectInput("county", "Choose the focal county",
-                  choices = c("Jefferson",
-                              "St. Lawrence",
-                              "Franklin",
-                              "Clinton",
-                              "Essex",
-                              "Hamilton",
-                              "Herkimer",
-                              "Lewis"),
-                  selected = "St. Lawrence")
-    ),
+      selectInput("variable", "Choose the data to display",
+                  choices = c("Total cases",
+                              "Cases per 1000 residents",
+                              "Total tests",
+                              "Tests per 1000 residents"
+                              ),
+                  selected = "Total cases")
+     ),
     mainPanel(
       tabsetPanel(
-        tabPanel("Cases by county",
+        tabPanel("Plot view",
                  plotOutput("cases_county")),
-        tabPanel("Cases per capita", plotOutput("cases_per_1000")),
+        tabPanel("Table view", tableOutput("cases_by_table")),
         tabPanel("Map view", leafletOutput("covid_map"))
       )
     )
@@ -88,23 +91,21 @@ server<-function(input, output) {
       scale_color_manual(values = colors)+
       labs(x = "Date", y = "Cumulative number of cases")
   })
-  output$cases_per_1000<-renderPlot({
-    ggplot(noco_covid, aes(test_date, cases_per_1000, group = county, color = county))+
-      geom_line()+
-      geom_point()+
-      scale_color_manual(values = colors)+
-      labs(x = "Date", y = "Cases per 1000 people")
+  output$cases_by_table<-renderTable({
+    noco_covid
   })
   output$covid_map<- renderLeaflet({
-  leaflet() %>% addTiles() %>%
+  leaflet() %>% #addTiles() %>%
     setView(lng = -75.05, lat = 44.05, zoom = 7) %>%
     addPolygons(
+      fillColor = ~pal(cases_per_1000),
       data = counties,
-      weight = 5,
-      col = 'red',
+      weight = 2,
+      opacity = 1,
+      color = "green",
       highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
         weight = 5,
-        color = "orange",
+        color = "red",
         bringToFront = T),
       label = labels,
       labelOptions = labelOptions(
