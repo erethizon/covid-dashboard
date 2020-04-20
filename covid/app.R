@@ -9,11 +9,11 @@ library(config)#for keeping config file private
 library(htmltools) #for tweaking map labels
 
 #pull in shapefile
-counties<-readOGR("NYS_Civil_Boundaries_SHP/no_co_counties.shp", layer = "Counties")
+counties<-readOGR("/Users/ebar/Dropbox/R/covid-dashboard/NYS_Civil_Boundaries_SHP/no_co_counties.shp", layer = "no_co_counties")
 
 #PULL IN PUBLICH HEALTH DATA
 
-nys<-config::get("nys_healthdata") #may need to adjust path
+nys<-config::get("/Users/ebar/Dropbox/R/covid-dashboard/nys_healthdata") #may need to adjust path
 
 #pull the data
 covidData<-read.socrata(
@@ -31,14 +31,25 @@ no_covid<-noco_covid %>% group_by(county) %>%
   arrange(desc(test_date)) %>% slice(1)
 
 #join health data to shapefile
-noco_ll@data<-left_join(noco_ll@data, no_covid, by = c("NAME" = "county"))
+counties@data<-left_join(counties@data, no_covid, by = c("NAME" = "county"))
 
+#calculate per capita cases in shapefile
+counties@data$cases_per_cap<-(counties@data$cumulative_number_of_positives)/(counties@data$Pop)
+
+#set population variable
+population<-c(80695,37300,50293,4434,61833,111755,26447,108047)
+pop_size<-rep(population, 48)
 #now set up map labels
 
+noco_covid$pop_size<-pop_size
+noco_covid$cases_per_cap<-noco_covid$cumulative_number_of_positives/noco_covid$pop_size
+noco_covid$cases_per_1000<-noco_covid$cases_per_cap*1000
 labels<-sprintf(
   "<strong>%s</strong><br/>%g cases.",
-  noco_ll$NAME, noco_ll$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
+  counties$NAME, counties$cumulative_number_of_positives) %>% lapply(htmltools::HTML)
 
+#create some map variables
+colors<-c('#ffffe5','#f7fcb9','#d9f0a3','#addd8e','#78c679','#41ab5d','#238443','#005a32')
 
 #build ui ----
 ui<-fluidPage(
@@ -59,6 +70,9 @@ ui<-fluidPage(
     ),
     mainPanel(
       tabsetPanel(
+        tabPanel("Cases by county",
+                 plotOutput("cases_county")),
+        tabPanel("Cases per capita", plotOutput("cases_per_1000")),
         tabPanel("Map view", leafletOutput("covid_map"))
       )
     )
@@ -67,11 +81,25 @@ ui<-fluidPage(
 
 #define server logic ----
 server<-function(input, output) {
-ouptput$covid_map<- renderLeaflet({
+  output$cases_county<-renderPlot({
+    ggplot(noco_covid, aes(test_date, cumulative_number_of_positives, group = county, color = county))+
+      geom_line()+
+      geom_point()+
+      scale_color_manual(values = colors)+
+      labs(x = "Date", y = "Cumulative number of cases")
+  })
+  output$cases_per_1000<-renderPlot({
+    ggplot(noco_covid, aes(test_date, cases_per_1000, group = county, color = county))+
+      geom_line()+
+      geom_point()+
+      scale_color_manual(values = colors)+
+      labs(x = "Date", y = "Cases per 1000 people")
+  })
+  output$covid_map<- renderLeaflet({
   leaflet() %>% addTiles() %>%
     setView(lng = -75.05, lat = 44.05, zoom = 7) %>%
     addPolygons(
-      data = noco_ll,
+      data = counties,
       weight = 5,
       col = 'red',
       highlight = highlightOptions(#highlight lets you mouse over a county and have it change color
@@ -86,6 +114,7 @@ ouptput$covid_map<- renderLeaflet({
     )
 
 })
+
 }
 
 # Run the app ----
